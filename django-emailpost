@@ -18,6 +18,7 @@
 
 from __future__ import with_statement
 
+import optparse
 import os
 import sys
 
@@ -25,14 +26,13 @@ from email import message_from_file
 from email.parser import Parser
 
 
-# Postfix sends  messages via stdin.
-MSG = Parser().parse(sys.stdin)
+__VERSION__ = "0.0.1"
+__TMP_FILE__ = "/tmp/django-emailpost.txt"
 
-# We can't use os.getenv("HOME") here because postfix is not running under my
-# UID. Temporarily hardcoded the path. Change manually while testing.
-__TMP_HOME_DIR__ = "/home/jkearney"
-__TMP_FILE__ = __TMP_HOME_DIR__ + "/django-emailpost.txt"
-__TMP_ATTACHMENT_DIR__ = __TMP_HOME_DIR__
+
+def slugify_subject(subject):
+    """Convert the email's subject into a pretty URL slug."""
+    pass
 
 
 def capture_headers(msg):
@@ -65,9 +65,38 @@ def walk_email(msg, attachment_dir):
     return (body, attachments)
 
 
+def build_options():
+    """Generate command line options."""
+    parser = optparse.OptionParser(version=__VERSION__)
+
+    parser.add_option("-a", "--attachment-dir", dest="attachment_dir",
+            default=None, help="location to store email attachments")
+    parser.add_option("-r", "--recipients", dest="recipients",
+            help="list of accepted recipients")
+    parser.add_option("-s", "--senders", dest="senders",
+            help="list of accepted senders")
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+    OPTIONS, ARGS = build_options()
+    ATTACHMENT_DIR = OPTIONS.attachment_dir
+    RECIPIENTS = OPTIONS.recipients
+    SENDERS = OPTIONS.senders
+
+    if not ATTACHMENT_DIR:
+        sys.exit("Must supply a default attachment directory.")
+    elif not RECIPIENTS:
+        sys.exit("Must supply a recipient.")
+    elif not SENDERS:
+        sys.exit("Must supply a sender.")
+
+    # Postfix sends messages via stdin.
+    MSG = Parser().parse(sys.stdin)
+
     HEADERS = capture_headers(MSG)
-    BODY, ATTACHMENTS = walk_email(MSG, __TMP_ATTACHMENT_DIR__)
+    BODY, ATTACHMENTS = walk_email(MSG, ATTACHMENT_DIR)
 
     with open(__TMP_FILE__, "w") as f:
         f.write("%s\n%s\n%s\n%s\n%s" % (
