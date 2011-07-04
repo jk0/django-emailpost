@@ -1,0 +1,12 @@
+django-emailpost - Post to Django blogs via email.
+
+
+Installation
+
+    git clone git://github.com/jk0/django-emailpost.git
+    cd django-emailpost
+    sudo ln -s /path/to/django-emailpost /usr/bin
+
+    sudo apt-get install postfix mailutils
+    sudo postconf -e "mailbox_command = /usr/bin/django-emailpost"
+    sudo /etc/init.d/postfix restart
