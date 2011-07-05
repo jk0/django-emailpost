@@ -8,5 +8,19 @@ Installation
     sudo ln -s /path/to/django-emailpost /usr/bin
 
     sudo apt-get install postfix mailutils
-    sudo postconf -e "mailbox_command = /usr/bin/django-emailpost -p <project path> -a <app> -m <model> -r <recipient> -s <sender>"
+    sudo postconf -e "mailbox_command = /usr/bin/django-emailpost -p <project path> -a <app> -r <recipient> -s <sender>"
     sudo /etc/init.d/postfix restart
+
+
+DB Model Assumptions
+
+    class Category(models.Model):
+        name = models.CharField()
+
+    class Post(models.Model):
+        title = models.CharField()
+        slug = models.CharField()
+        date = models.DateTimeField()
+        body = models.TextField()
+        published = models.BooleanField()
+        categories = models.ManyToManyField(Category)
