@@ -22,6 +22,8 @@ import optparse
 import os
 import sys
 
+from django.conf import settings
+
 from email import message_from_file
 from email.parser import Parser
 
@@ -74,8 +76,8 @@ def build_options():
     """Generate command line options."""
     parser = optparse.OptionParser(version=__VERSION__)
 
-    parser.add_option("-a", "--attachment-dir", dest="attachment_dir",
-            default=None, help="location to store email attachments")
+    parser.add_option("-p", "--project-path", dest="project_path",
+            help="path of the Django project")
     parser.add_option("-r", "--recipients", dest="recipients",
             help="list of accepted recipients")
     parser.add_option("-s", "--senders", dest="senders",
@@ -86,22 +88,28 @@ def build_options():
 
 if __name__ == "__main__":
     OPTIONS, ARGS = build_options()
-    ATTACHMENT_DIR = OPTIONS.attachment_dir
+    PROJECT_PATH = OPTIONS.project_path
     RECIPIENTS = OPTIONS.recipients
     SENDERS = OPTIONS.senders
 
-    if not ATTACHMENT_DIR:
-        sys.exit("Must supply a default attachment directory.")
+    if not PROJECT_PATH:
+        sys.exit("Must supply path to Django project.")
     elif not RECIPIENTS:
         sys.exit("Must supply a recipient.")
     elif not SENDERS:
         sys.exit("Must supply a sender.")
 
+    # Prepare Django project's env vars.
+    sys.path.append(PROJECT_PATH)
+    sys.path.append(PROJECT_PATH + "/../")
+    os.environ["DJANGO_SETTINGS_MODULE"]= "%s.settings" % os.path.basename(
+            PROJECT_PATH)
+
     # Postfix sends messages via stdin.
     MSG = Parser().parse(sys.stdin)
 
     HEADERS = capture_headers(MSG)
-    BODY, ATTACHMENTS = walk_email(MSG, ATTACHMENT_DIR)
+    BODY, ATTACHMENTS = walk_email(MSG, settings.MEDIA_ROOT)
 
     with open(__TMP_FILE__, "w") as f:
         f.write("%s\n%s\n%s\n%s\n%s" % (
