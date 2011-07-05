@@ -30,11 +30,6 @@ __VERSION__ = "0.0.1"
 __TMP_FILE__ = "/tmp/django-emailpost.txt"
 
 
-def slugify_subject(subject):
-    """Convert the email's subject into a pretty URL slug."""
-    pass
-
-
 def capture_headers(msg):
     """Capture and return the email's headers."""
     return dict(
@@ -63,6 +58,16 @@ def walk_email(msg, attachment_dir):
             body = part.get_payload()
 
     return (body, attachments)
+
+
+def slugify_subject(subject):
+    """Convert the email's subject into a pretty URL slug."""
+    pass
+
+
+def insert_post():
+    """Insert the new post into the Django DB."""
+    pass
 
 
 def build_options():

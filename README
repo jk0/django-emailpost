@@ -8,5 +8,5 @@ Installation
     sudo ln -s /path/to/django-emailpost /usr/bin
 
     sudo apt-get install postfix mailutils
-    sudo postconf -e "mailbox_command = /usr/bin/django-emailpost"
+    sudo postconf -e "mailbox_command = /usr/bin/django-emailpost -a <attachment directory> -r <accepted recipients> -s <accepted senders>"
     sudo /etc/init.d/postfix restart
