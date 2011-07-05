@@ -20,6 +20,7 @@ from __future__ import with_statement
 
 import optparse
 import os
+import re
 import sys
 
 from django.conf import settings
@@ -34,10 +35,23 @@ __TMP_FILE__ = "/tmp/django-emailpost.txt"
 
 def capture_headers(msg):
     """Capture and return the email's headers."""
-    return dict(
-            original_recipient=os.getenv("ORIGINAL_RECIPIENT"),
-            sender=os.getenv("SENDER"),
-            subject=msg["SUBJECT"])
+    subject = msg["SUBJECT"]
+
+    # Pull the category out of the subject.
+    regex = re.compile("\{(.*)\}")
+    match = regex.search(subject)
+
+    if match:
+        category = match.group(1).capitalize()
+        subject = subject[:-(len(category) + 2)]
+
+        return dict(
+                original_recipient=os.getenv("ORIGINAL_RECIPIENT"),
+                sender=os.getenv("SENDER"),
+                subject=subject.strip(),
+                category=category)
+    else:
+        sys.exit("Must provide a category.")
 
 
 def walk_email(msg, attachment_dir):
@@ -66,10 +80,12 @@ def build_options():
     """Generate command line options."""
     parser = optparse.OptionParser(version=__VERSION__)
 
+    parser.add_option("-a", "--app", dest="app",
+            help="name of the Django app")
     parser.add_option("-m", "--model", dest="model",
             help="model of the Django app")
     parser.add_option("-p", "--project-path", dest="project_path",
-            help="path of the Django project")
+            help="path to the Django project")
     parser.add_option("-r", "--recipient", dest="recipient",
             help="accepted recipient")
     parser.add_option("-s", "--sender", dest="sender",
@@ -80,60 +96,77 @@ def build_options():
 
 def ensure_config_options():
     """Ensure the required CLI options are present."""
-    if not MODEL:
+    if not __APP__:
+        sys.exit("Must supply a Django app.")
+    elif not __MODEL__:
         sys.exit("Must supply an app model.")
-    elif not PROJECT_PATH:
+    elif not __PROJECT_PATH__:
         sys.exit("Must supply path to Django project.")
-    elif not RECIPIENT:
+    elif not __RECIPIENT__:
         sys.exit("Must supply a recipient.")
-    elif not SENDER:
+    elif not __SENDER__:
         sys.exit("Must supply a sender.")
 
+    # Add the project to the Python Path while we're at it.
+    sys.path.append(__PROJECT_PATH__)
+    sys.path.append(__PROJECT_PATH__ + "/../")
+    os.environ["DJANGO_SETTINGS_MODULE"]= "%s.settings" % os.path.basename(
+            __PROJECT_PATH__)
 
-def ensure_allowed(headers, sender, recipient):
+
+def ensure_allowed():
     """Ensure sender is permitted to send to recipient."""
-    if sender != headers["sender"]:
+    if __SENDER__ != __HEADERS__["sender"]:
         sys.exit("Access Denied: Invalid Sender")
-    elif recipient != headers["original_recipient"]:
+    elif __RECIPIENT__ != __HEADERS__["original_recipient"]:
         sys.exit("Access Denied: Invalid Recipient")
+
+
+def load_models():
+    """Load and return the app's models."""
+    # Import this here because DJANGO_SETTINGS_MODULE needs to be set first.
+    from django.db import models
+
+    return (models.get_model(__APP__, __MODEL__),
+            models.get_model(__APP__, "Category"))
+
+
+def find_category(model, category):
+    """Find and return the category ID."""
+    try:
+        return int(model.objects.filter(name=category)[0].id)
+    except IndexError:
+        sys.exit("Category not found.")
 
 
 if __name__ == "__main__":
     OPTIONS, ARGS = build_options()
 
-    MODEL = OPTIONS.model
-    PROJECT_PATH = OPTIONS.project_path
-    RECIPIENT = OPTIONS.recipient
-    SENDER = OPTIONS.sender
-    APP = os.path.basename(PROJECT_PATH)
+    __APP__ = OPTIONS.app
+    __MODEL__ = OPTIONS.model
+    __PROJECT_PATH__ = OPTIONS.project_path
+    __RECIPIENT__ = OPTIONS.recipient
+    __SENDER__ = OPTIONS.sender
 
     ensure_config_options()
-
-    # Prepare Django project's env vars.
-    sys.path.append(PROJECT_PATH)
-    sys.path.append(PROJECT_PATH + "/../")
-    os.environ["DJANGO_SETTINGS_MODULE"]= "%s.settings" % APP
-
-    # Import this here because DJANGO_SETTINGS_MODULE needs to be set.
-    from django.db import models
 
     # Postfix sends messages via stdin.
     MSG = Parser().parse(sys.stdin)
 
-    # Enforce ACLs.
-    HEADERS = capture_headers(MSG)
-    ensure_allowed(HEADERS, SENDER, RECIPIENT)
+    # Enforce ACLs and parse the email's headers.
+    __HEADERS__ = capture_headers(MSG)
+    ensure_allowed()
 
-    # Extract email body and attachments.
+    # Extract email body and attachment filenames.
     BODY, ATTACHMENTS = walk_email(MSG, settings.MEDIA_ROOT)
 
-    # TODO(jk0): post to app's MODEL and use templates for handling text-only
-    # posts, single image posts and multi-image posts.
-    # https://docs.djangoproject.com/en/1.3/intro/tutorial01/
-    # http://djangosnippets.org/snippets/1413/
+    # Load the app's models and the category ID.
+    POST_MODEL, CATEGORY_MODEL = load_models()
+    CATEGORY_ID = find_category(CATEGORY_MODEL, __HEADERS__["category"])
 
+    # Temporary debugging.
     with open(__TMP_FILE__, "w") as f:
-        f.write("%s\n%s\n%s\n%s\n%s" % (
-                HEADERS["original_recipient"], HEADERS["sender"],
-                HEADERS["subject"], BODY, ATTACHMENTS))
+        f.write("%s\n%s\n%s\n%s\n%s\n%s" % (
+                __HEADERS__["original_recipient"], __HEADERS__["sender"],
+                __HEADERS__["subject"], CATEGORY_ID, BODY, ATTACHMENTS))
     f.closed
