@@ -63,7 +63,8 @@ def walk_email(msg, attachment_dir):
     # TODO(jk0): If there is only an image and no 'body', automatically
     # generate the body content with a URL to the image using
     # settings.MEDIA_URL. Also figure out how to dynamically link the images if
-    # there is text provided in the body.
+    # there is text provided in the body. We also need to figure out how to
+    # automatically generate thumbnail versions of the images.
 
     for part in msg.walk():
         part_type = part.get_content_type()
