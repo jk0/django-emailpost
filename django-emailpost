@@ -78,26 +78,40 @@ def build_options():
 
     parser.add_option("-p", "--project-path", dest="project_path",
             help="path of the Django project")
-    parser.add_option("-r", "--recipients", dest="recipients",
-            help="list of accepted recipients")
-    parser.add_option("-s", "--senders", dest="senders",
-            help="list of accepted senders")
+    parser.add_option("-r", "--recipient", dest="recipient",
+            help="accepted recipient")
+    parser.add_option("-s", "--sender", dest="sender",
+            help="accepted sender")
 
     return parser.parse_args()
+
+
+def ensure_config_options():
+    """Ensure the required CLI options are present."""
+    if not PROJECT_PATH:
+        sys.exit("Must supply path to Django project.")
+    elif not RECIPIENT:
+        sys.exit("Must supply a recipient.")
+    elif not SENDER:
+        sys.exit("Must supply a sender.")
+
+
+def ensure_allowed(headers, sender, recipient):
+    """Ensure sender is permitted to send to recipient."""
+    if sender != headers["sender"]:
+        sys.exit("Access Denided: Invalid Sender")
+
+    if recipient != headers["original_recipient"]:
+        sys.exit("Access Denied: Invalid Recipient")
 
 
 if __name__ == "__main__":
     OPTIONS, ARGS = build_options()
     PROJECT_PATH = OPTIONS.project_path
-    RECIPIENTS = OPTIONS.recipients
-    SENDERS = OPTIONS.senders
+    RECIPIENT = OPTIONS.recipient
+    SENDER = OPTIONS.sender
 
-    if not PROJECT_PATH:
-        sys.exit("Must supply path to Django project.")
-    elif not RECIPIENTS:
-        sys.exit("Must supply a recipient.")
-    elif not SENDERS:
-        sys.exit("Must supply a sender.")
+    ensure_config_options()
 
     # Prepare Django project's env vars.
     sys.path.append(PROJECT_PATH)
@@ -108,7 +122,11 @@ if __name__ == "__main__":
     # Postfix sends messages via stdin.
     MSG = Parser().parse(sys.stdin)
 
+    # Enforce ACLs.
     HEADERS = capture_headers(MSG)
+    ensure_allowed(HEADERS, SENDER, RECIPIENT)
+
+    # Extract email body and attachments.
     BODY, ATTACHMENTS = walk_email(MSG, settings.MEDIA_ROOT)
 
     with open(__TMP_FILE__, "w") as f:
