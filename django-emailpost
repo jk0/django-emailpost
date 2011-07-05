@@ -44,12 +44,13 @@ def capture_headers(msg):
 
     if match:
         category = match.group(1).capitalize()
-        subject = subject[:-(len(category) + 2)]
+        # Purge '{category}' from the subject line.
+        subject = subject[:-(len(category) + 2)].strip()
 
         return dict(
                 original_recipient=os.getenv("ORIGINAL_RECIPIENT"),
                 sender=os.getenv("SENDER"),
-                subject=subject.strip(),
+                subject=subject,
                 category=category)
     else:
         sys.exit("Must provide a category.")
@@ -60,11 +61,8 @@ def walk_email(msg, attachment_dir):
     body = ""
     attachments = []
 
-    # TODO(jk0): If there is only an image and no 'body', automatically
-    # generate the body content with a URL to the image using
-    # settings.MEDIA_URL. Also figure out how to dynamically link the images if
-    # there is text provided in the body. We also need to figure out how to
-    # automatically generate thumbnail versions of the images.
+    # TODO(jk0): Look into automatically generating thumbnail versions of
+    # images.
 
     for part in msg.walk():
         part_type = part.get_content_type()
@@ -110,10 +108,10 @@ def ensure_config_options():
     elif not __SENDER__:
         sys.exit("Must supply a sender.")
 
-    # Add the project to the Python Path while we're at it.
+    # Add the project to the Python Path and load the app's settings.
     sys.path.append(__PROJECT_PATH__)
     sys.path.append(__PROJECT_PATH__ + "/../")
-    os.environ["DJANGO_SETTINGS_MODULE"]= "%s.settings" % os.path.basename(
+    os.environ["DJANGO_SETTINGS_MODULE"] = "%s.settings" % os.path.basename(
             __PROJECT_PATH__)
 
 
@@ -144,6 +142,7 @@ def find_category(model, category):
 def publish_post(model, category_id, title, body, attachments):
     """Publish the new post to the DB."""
     if len(attachments) > 0:
+        # TODO(jk0): Add support for multiple attachments.
         attachment_path = "%s%s" % (settings.MEDIA_URL, attachments[0])
         attachment_href = "<a href=\"%s\" class=\"lightbox\">" \
                 "<img src=\"%s\" alt=\"%s\"></a>" % (attachment_path,
