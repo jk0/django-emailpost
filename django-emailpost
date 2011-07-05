@@ -99,7 +99,7 @@ def ensure_config_options():
 def ensure_allowed(headers, sender, recipient):
     """Ensure sender is permitted to send to recipient."""
     if sender != headers["sender"]:
-        sys.exit("Access Denided: Invalid Sender")
+        sys.exit("Access Denied: Invalid Sender")
 
     if recipient != headers["original_recipient"]:
         sys.exit("Access Denied: Invalid Recipient")
