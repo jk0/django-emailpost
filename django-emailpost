@@ -62,20 +62,12 @@ def walk_email(msg, attachment_dir):
     return (body, attachments)
 
 
-def slugify_subject(subject):
-    """Convert the email's subject into a pretty URL slug."""
-    pass
-
-
-def insert_post():
-    """Insert the new post into the Django DB."""
-    pass
-
-
 def build_options():
     """Generate command line options."""
     parser = optparse.OptionParser(version=__VERSION__)
 
+    parser.add_option("-m", "--model", dest="model",
+            help="model of the Django app")
     parser.add_option("-p", "--project-path", dest="project_path",
             help="path of the Django project")
     parser.add_option("-r", "--recipient", dest="recipient",
@@ -88,7 +80,9 @@ def build_options():
 
 def ensure_config_options():
     """Ensure the required CLI options are present."""
-    if not PROJECT_PATH:
+    if not MODEL:
+        sys.exit("Must supply an app model.")
+    elif not PROJECT_PATH:
         sys.exit("Must supply path to Django project.")
     elif not RECIPIENT:
         sys.exit("Must supply a recipient.")
@@ -100,24 +94,28 @@ def ensure_allowed(headers, sender, recipient):
     """Ensure sender is permitted to send to recipient."""
     if sender != headers["sender"]:
         sys.exit("Access Denied: Invalid Sender")
-
-    if recipient != headers["original_recipient"]:
+    elif recipient != headers["original_recipient"]:
         sys.exit("Access Denied: Invalid Recipient")
 
 
 if __name__ == "__main__":
     OPTIONS, ARGS = build_options()
+
+    MODEL = OPTIONS.model
     PROJECT_PATH = OPTIONS.project_path
     RECIPIENT = OPTIONS.recipient
     SENDER = OPTIONS.sender
+    APP = os.path.basename(PROJECT_PATH)
 
     ensure_config_options()
 
     # Prepare Django project's env vars.
     sys.path.append(PROJECT_PATH)
     sys.path.append(PROJECT_PATH + "/../")
-    os.environ["DJANGO_SETTINGS_MODULE"]= "%s.settings" % os.path.basename(
-            PROJECT_PATH)
+    os.environ["DJANGO_SETTINGS_MODULE"]= "%s.settings" % APP
+
+    # Import this here because DJANGO_SETTINGS_MODULE needs to be set.
+    from django.db import models
 
     # Postfix sends messages via stdin.
     MSG = Parser().parse(sys.stdin)
@@ -128,6 +126,11 @@ if __name__ == "__main__":
 
     # Extract email body and attachments.
     BODY, ATTACHMENTS = walk_email(MSG, settings.MEDIA_ROOT)
+
+    # TODO(jk0): post to app's MODEL and use templates for handling text-only
+    # posts, single image posts and multi-image posts.
+    # https://docs.djangoproject.com/en/1.3/intro/tutorial01/
+    # http://djangosnippets.org/snippets/1413/
 
     with open(__TMP_FILE__, "w") as f:
         f.write("%s\n%s\n%s\n%s\n%s" % (
