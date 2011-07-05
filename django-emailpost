@@ -23,8 +23,9 @@ import os
 import re
 import sys
 
+from datetime import datetime
 from django.conf import settings
-
+from django.template import defaultfilters
 from email import message_from_file
 from email.parser import Parser
 
@@ -58,6 +59,11 @@ def walk_email(msg, attachment_dir):
     """Walk through the email and return its body with attachments."""
     body = ""
     attachments = []
+
+    # TODO(jk0): If there is only an image and no 'body', automatically
+    # generate the body content with a URL to the image using
+    # settings.MEDIA_URL. Also figure out how to dynamically link the images if
+    # there is text provided in the body.
 
     for part in msg.walk():
         part_type = part.get_content_type()
@@ -135,6 +141,27 @@ def find_category(model, category):
         sys.exit("Category not found.")
 
 
+def publish_post(model, category_id, title, body, attachments):
+    """Publish the new post to the DB."""
+    slug = defaultfilters.slugify(title)
+    post = model(title=title, slug=slug, date=datetime.now(), body=body,
+            published=True)
+
+    # For testing only.
+    post.id = "1000"
+    #post.save
+
+    # Give the post a category.
+    post.categories = [category_id]
+    #post.save
+
+    # Temporary debugging.
+    with open(__TMP_FILE__, "w") as f:
+        f.write("%s\n%s\n%s\n%s\n%s" % (post.title, post.slug, post.date,
+                post.body, post.categories.all()))
+    f.closed
+
+
 if __name__ == "__main__":
     OPTIONS, ARGS = build_options()
 
@@ -159,9 +186,6 @@ if __name__ == "__main__":
     POST_MODEL, CATEGORY_MODEL = load_models()
     CATEGORY_ID = find_category(CATEGORY_MODEL, __HEADERS__["category"])
 
-    # Temporary debugging.
-    with open(__TMP_FILE__, "w") as f:
-        f.write("%s\n%s\n%s\n%s\n%s\n%s" % (
-                __HEADERS__["original_recipient"], __HEADERS__["sender"],
-                __HEADERS__["subject"], CATEGORY_ID, BODY, ATTACHMENTS))
-    f.closed
+    # Publish the new post to the DB.
+    publish_post(POST_MODEL, CATEGORY_ID, __HEADERS__["subject"], BODY,
+            ATTACHMENTS)
