@@ -78,7 +78,7 @@ def walk_email(msg, attachment_dir):
 
             attachments.append(filename)
         elif part_type == "text/plain":
-            body = part.get_payload()
+            body = part.get_payload().strip()
 
     return (body, attachments)
 
@@ -127,8 +127,7 @@ def ensure_allowed():
 
 def load_models():
     """Load and return the app's models."""
-    # Import this here because DJANGO_SETTINGS_MODULE needs to be set first.
-    from django.db import models
+    from django.db import models  # Import after DJANGO_SETTINGS_MODULE is set
 
     return (models.get_model(__APP__, "Post"),
             models.get_model(__APP__, "Category"))
@@ -144,6 +143,19 @@ def find_category(model, category):
 
 def publish_post(model, category_id, title, body, attachments):
     """Publish the new post to the DB."""
+    if len(attachments) > 0:
+        attachment_path = "%s%s" % (settings.MEDIA_URL, attachments[0])
+        attachment_href = "<a href=\"%s\" class=\"lightbox\">" \
+                "<img src=\"%s\" alt=\"%s\"></a>" % (attachment_path,
+                attachment_path, title)
+
+    # If there are attachments and no body, only link the attachments.
+    if len(body) <= 1 and len(attachments) > 0:
+        body = attachment_href
+    # If there is a body and attachments, include both.
+    elif len(body) > 1 and len(attachments) > 0:
+        body = "%s\n\n%s" % (attachment_href, body)
+
     slug = defaultfilters.slugify(title)
     post = model(title=title, slug=slug, date=datetime.now(), body=body,
             published=True)
