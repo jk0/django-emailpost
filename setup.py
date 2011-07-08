@@ -23,7 +23,7 @@ setuptools.setup(
     description="Post to Django blogs via email.",
     license="Apache License, Version 2.0",
     url="http://github.com/jk0/django-emailpost",
-    install_requires=[],
+    install_requires=["PIL"],
     scripts=["django-emailpost"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",

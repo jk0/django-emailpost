@@ -18,10 +18,12 @@
 
 from __future__ import with_statement
 
+import Image
 import optparse
 import os
 import re
 import sys
+import uuid
 
 from datetime import datetime
 from django.conf import settings
@@ -31,7 +33,6 @@ from email.parser import Parser
 
 
 __VERSION__ = "0.0.1"
-__TMP_FILE__ = "/tmp/django-emailpost.txt"
 
 
 def capture_headers(msg):
@@ -61,20 +62,30 @@ def walk_email(msg, attachment_dir):
     body = ""
     attachments = []
 
-    # TODO(jk0): Look into automatically generating thumbnail versions of
-    # images.
-
     for part in msg.walk():
         part_type = part.get_content_type()
 
         if part_type.startswith("image"):
-            filename = part.get_filename()
-            # TODO(jk0): Prevent existing files from being overwritten.
-            with open(os.path.join(attachment_dir, filename), "w") as f:
+            # TODO(jk0): Support more than just JPEG.
+            image_name = str(uuid.uuid4().hex) + ".jpg"
+            image_path = os.path.join(attachment_dir, image_name)
+            thumbnail_name = image_name[:-4] + "-300x224.jpg"
+            thumbnail_path = attachment_dir + thumbnail_name
+
+            with open(image_path, "w") as f:
                 f.write(part.get_payload(decode=True))
             f.closed
 
-            attachments.append(filename)
+            # Generate a thumbnail version of the image.
+            image = Image.open(image_path)
+            image.thumbnail((300, 224), Image.ANTIALIAS)
+            image.save(thumbnail_path)
+
+            # Let the images be viewable on the web server.
+            os.chmod(image_path, 0644)
+            os.chmod(thumbnail_path, 0644)
+
+            attachments.append((image_name, thumbnail_name))
         elif part_type == "text/plain":
             body = part.get_payload().strip()
 
@@ -102,7 +113,7 @@ def ensure_config_options():
     if not __APP__:
         sys.exit("Must supply a Django app.")
     elif not __PROJECT_PATH__:
-        sys.exit("Must supply path to Django project.")
+        sys.exit("Must supply the path to the Django project.")
     elif not __RECIPIENT__:
         sys.exit("Must supply a recipient.")
     elif not __SENDER__:
@@ -143,10 +154,11 @@ def publish_post(model, category_id, title, body, attachments):
     """Publish the new post to the DB."""
     if len(attachments) > 0:
         # TODO(jk0): Add support for multiple attachments.
-        attachment_path = "%s%s" % (settings.MEDIA_URL, attachments[0])
+        original_path = "%s%s" % (settings.MEDIA_URL, attachments[0][0])
+        thumbnail_path = "%s%s" % (settings.MEDIA_URL, attachments[0][1])
         attachment_href = "<a href=\"%s\" class=\"lightbox\">" \
-                "<img src=\"%s\" alt=\"%s\"></a>" % (attachment_path,
-                attachment_path, title)
+                "<img src=\"%s\" width=\"300\" height=\"224\" alt=\"%s\">" \
+                "</a>" % (original_path, thumbnail_path, title)
 
     # If there are attachments and no body, only link the attachments.
     if len(body) <= 1 and len(attachments) > 0:
@@ -158,20 +170,11 @@ def publish_post(model, category_id, title, body, attachments):
     slug = defaultfilters.slugify(title)
     post = model(title=title, slug=slug, date=datetime.now(), body=body,
             published=True)
-
-    # For testing only.
-    post.id = "1000"
-    #post.save
+    post.save
 
     # Give the post a category.
     post.categories = [category_id]
-    #post.save
-
-    # Temporary debugging.
-    with open(__TMP_FILE__, "w") as f:
-        f.write("%s\n%s\n%s\n%s\n%s" % (post.title, post.slug, post.date,
-                post.body, post.categories.all()))
-    f.closed
+    post.save
 
 
 if __name__ == "__main__":
