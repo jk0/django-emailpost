@@ -170,11 +170,11 @@ def publish_post(model, category_id, title, body, attachments):
     slug = defaultfilters.slugify(title)
     post = model(title=title, slug=slug, date=datetime.now(), body=body,
             published=True)
-    post.save
+    post.save()
 
     # Give the post a category.
     post.categories = [category_id]
-    post.save
+    post.save()
 
 
 if __name__ == "__main__":
