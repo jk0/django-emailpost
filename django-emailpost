@@ -32,9 +32,6 @@ from email import message_from_file
 from email.parser import Parser
 
 
-__VERSION__ = "0.0.2"
-
-
 def capture_headers(msg):
     """Capture and return the email's headers."""
     subject = msg["SUBJECT"]
@@ -94,7 +91,7 @@ def walk_email(msg, attachment_dir):
 
 def build_options():
     """Generate command line options."""
-    parser = optparse.OptionParser(version=__VERSION__)
+    parser = optparse.OptionParser()
 
     parser.add_option("-a", "--app", dest="app",
             help="name of the Django app")
