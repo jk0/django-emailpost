@@ -32,7 +32,7 @@ from email import message_from_file
 from email.parser import Parser
 
 
-__VERSION__ = "0.0.1"
+__VERSION__ = "0.0.2"
 
 
 def capture_headers(msg):
