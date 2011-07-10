@@ -18,12 +18,14 @@
 
 from __future__ import with_statement
 
+import bitlyapi
 import Image
 import optparse
 import os
 import re
 import smtplib
 import sys
+import twitter
 import uuid
 
 from datetime import datetime
@@ -32,6 +34,27 @@ from django.template import defaultfilters
 from email import message_from_file
 from email.mime.text import MIMEText
 from email.parser import Parser
+
+
+def generate_bitly(url):
+    """Generate a bitly URL."""
+    api = bitlyapi.BitLy(settings.BITLY_LOGIN, settings.BITLY_APIKEY)
+    bitly = api.shorten(longUrl=url)
+
+    return bitly["url"]
+
+
+def tweet(title, url):
+    """Tweet the title and URL of the new post."""
+    if not __TWEET__:
+        return
+
+    api = twitter.Api(consumer_key=settings.TWITTER_CONSUMER_KEY,
+            consumer_secret=settings.TWITTER_CONSUMER_SECRET,
+            access_token_key=settings.TWITTER_ACCESS_TOKEN_KEY,
+            access_token_secret=settings.TWITTER_ACCESS_TOKEN_SECRET)
+
+    api.PostUpdate("%s - %s" % (title, generate_bitly(url)))
 
 
 def send_confirmation(domain, title, slug):
@@ -125,6 +148,8 @@ def build_options():
             help="path to the Django project")
     parser.add_option("-r", "--recipient", dest="recipient",
             help="accepted recipient")
+    parser.add_option("--tweet", action="store_true", dest="tweet",
+            help="tweet new posts")
 
     # Optional parameters.
     optional = optparse.OptionGroup(parser, "Optional")
@@ -210,6 +235,7 @@ def publish_post(domain, model, category_id, title, body, attachments):
     post.categories = [category_id]
     post.save()
 
+    tweet(title, "http://%s/%s/" % (domain, slug))
     send_confirmation(domain, title, slug)
 
 
@@ -219,6 +245,7 @@ if __name__ == "__main__":
     __APP__ = OPTIONS.app
     __PROJECT_PATH__ = OPTIONS.project_path
     __RECIPIENT__ = OPTIONS.recipient
+    __TWEET__ = OPTIONS.tweet
 
     __IMAGE_WIDTH__ = OPTIONS.image_width
     __IMAGE_HEIGHT__ = OPTIONS.image_height

@@ -17,13 +17,13 @@ import setuptools
 
 setuptools.setup(
     name="django-emailpost",
-    version="0.0.2",
+    version="0.0.3",
     author="Josh Kearney",
     author_email="josh@jk0.org",
     description="Post to Django blogs via email.",
     license="Apache License, Version 2.0",
     url="https://github.com/jk0/django-emailpost",
-    install_requires=["PIL"],
+    install_requires=["PIL", "python-twitter", "bitlyapi"],
     scripts=["django-emailpost"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",

@@ -8,7 +8,7 @@ Installation
     sudo ln -s /path/to/django-emailpost /usr/bin
 
     sudo apt-get install postfix
-    sudo postconf -e "mailbox_command = django-emailpost -p <project path> -a <app> -r <recipient>"
+    sudo postconf -e "mailbox_command = django-emailpost --tweet -p <project path> -a <app> -r <recipient>"
     sudo /etc/init.d/postfix restart
 
 
@@ -24,3 +24,16 @@ DB Model Assumptions
         body = models.TextField()
         published = models.BooleanField()
         categories = models.ManyToManyField(Category)
+
+
+Twitter Requirements
+
+    The following variables need to be set in settings.py:
+
+        BITLY_LOGIN
+        BITLY_APIKEY
+
+        TWITTER_CONSUMER_KEY
+        TWITTER_CONSUMER_SECRET
+        TWITTER_ACCESS_TOKEN_KEY
+        TWITTER_ACCESS_TOKEN_SECRET
