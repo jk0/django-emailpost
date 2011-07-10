@@ -173,9 +173,9 @@ def publish_post(model, category_id, title, body, attachments):
         # TODO(jk0): Add support for multiple attachments.
         original_path = "%s%s" % (settings.MEDIA_URL, attachments[0][0])
         thumbnail_path = "%s%s" % (settings.MEDIA_URL, attachments[0][1])
-        attachment_href = "<a href=\"%s\" class=\"lightbox\">" \
-                "<img src=\"%s\" width=\"300\" height=\"224\" alt=\"%s\">" \
-                "</a>" % (original_path, thumbnail_path, title)
+        # Generate in the Textile markup language.
+        attachment_href = "\"(lightbox)!%s(%s)!\":%s" % (thumbnail_path,
+                title, original_path)
 
     # If there are attachments and no body, only link the attachments.
     if len(body) <= 1 and len(attachments) > 0:
