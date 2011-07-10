@@ -78,8 +78,7 @@ def capture_headers(msg):
     subject = msg["SUBJECT"]
 
     # Pull the category out of the subject.
-    regex = re.compile("\{(.*)\}")
-    match = regex.search(subject)
+    match = re.compile("\{(.*)\}").search(subject, 1)
 
     if match:
         category = match.group(1).capitalize()
@@ -95,6 +94,14 @@ def capture_headers(msg):
         sys.exit("Must provide a category.")
 
 
+def get_extension(part):
+    """Parse the file extension out of an attachment."""
+    content_type = part.get("Content-Type")
+    match = re.compile("name=\"(.*)\"").search(content_type, 1)
+
+    return match.group(1)[-4:]
+
+
 def walk_email(msg, attachment_dir):
     """Walk through the email and return its body with attachments."""
     body = ""
@@ -104,12 +111,16 @@ def walk_email(msg, attachment_dir):
         part_type = part.get_content_type()
 
         if part_type.startswith("image"):
-            # TODO(jk0): Support more than just JPEG.
-            image_name = str(uuid.uuid4().hex) + ".jpg"
+            part_ext = get_extension(part)
+
+            image_name = uuid.uuid4().hex + part_ext
             image_path = os.path.join(attachment_dir, image_name)
-            thumbnail_name = image_name[:-4] + "-%dx%d.jpg" % (
-                    __THUMBNAIL_WIDTH__, __THUMBNAIL_HEIGHT__)
+            thumbnail_name = image_name[:-len(part_ext)] + "-%dx%d%s" % (
+                    __THUMBNAIL_WIDTH__, __THUMBNAIL_HEIGHT__, part_ext)
             thumbnail_path = attachment_dir + thumbnail_name
+            gallery_name = image_name[:-len(part_ext)] + "-%dx%d%s" % (
+                    __GALLERY_WIDTH__, __GALLERY_HEIGHT__, part_ext)
+            gallery_path = attachment_dir + gallery_name
 
             with open(image_path, "w") as f:
                 f.write(part.get_payload(decode=True))
@@ -126,11 +137,18 @@ def walk_email(msg, attachment_dir):
                     Image.ANTIALIAS)
             image.save(thumbnail_path)
 
-            # Let the images be viewable on the web server.
-            os.chmod(image_path, 0644)
-            os.chmod(thumbnail_path, 0644)
+            # Generate a gallery version of the image.
+            image = Image.open(image_path)
+            image.resize((__GALLERY_WIDTH__, __GALLERY_HEIGHT__),
+                    Image.ANTIALIAS)
+            image.save(gallery_path)
 
-            attachments.append((image_name, thumbnail_name))
+            # Let the images be viewable on the web server.
+            os.chmod(image_path, __DEFAULT_FILE_MODE__)
+            os.chmod(thumbnail_path, __DEFAULT_FILE_MODE__)
+            os.chmod(gallery_path, __DEFAULT_FILE_MODE__)
+
+            attachments.append((image_name, thumbnail_name, gallery_name))
         elif part_type == "text/plain":
             body = part.get_payload().strip()
 
@@ -161,6 +179,12 @@ def build_options():
             default=300, help="default thumbnail width")
     optional.add_option("--thumbnail-height", dest="thumbnail_height",
             type="int", default=224, help="default thumbnail height")
+    optional.add_option("--gallery-width", dest="gallery_width",
+            type="int", default=150, help="default gallery width")
+    optional.add_option("--gallery-height", dest="gallery_height",
+            type="int", default=150, help="default gallery height")
+    optional.add_option("--default-file-mode", dest="default_file_mode",
+            type="int", default=0644, help="default file mode")
     parser.add_option_group(optional)
 
     return parser.parse_args()
@@ -215,6 +239,8 @@ def publish_post(domain, model, category_id, title, body, attachments):
         # TODO(jk0): Add support for multiple attachments.
         original_path = "%s%s" % (settings.MEDIA_URL, attachments[0][0])
         thumbnail_path = "%s%s" % (settings.MEDIA_URL, attachments[0][1])
+        gallery_path = "%s%s" % (settings.MEDIA_URL, attachments[0][2])
+
         # Generate in the Textile markup language.
         attachment_href = "\"(lightbox)!%s(%s)!\":%s" % (thumbnail_path,
                 title, original_path)
@@ -249,8 +275,12 @@ if __name__ == "__main__":
 
     __IMAGE_WIDTH__ = OPTIONS.image_width
     __IMAGE_HEIGHT__ = OPTIONS.image_height
-    __THUBNAIL__WIDTH__ = OPTIONS.thumbnail_width
+    __THUMBNAIL_WIDTH__ = OPTIONS.thumbnail_width
     __THUMBNAIL_HEIGHT__ = OPTIONS.thumbnail_height
+    __GALLERY_WIDTH__ = OPTIONS.gallery_width
+    __GALLERY_HEIGHT__ = OPTIONS.gallery_height
+
+    __DEFAULT_FILE_MODE__ = OPTIONS.default_file_mode
 
     ensure_config_options()
 
