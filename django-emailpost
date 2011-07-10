@@ -66,16 +66,23 @@ def walk_email(msg, attachment_dir):
             # TODO(jk0): Support more than just JPEG.
             image_name = str(uuid.uuid4().hex) + ".jpg"
             image_path = os.path.join(attachment_dir, image_name)
-            thumbnail_name = image_name[:-4] + "-300x224.jpg"
+            thumbnail_name = image_name[:-4] + "-%dx%d.jpg" % (
+                    __THUMBNAIL_WIDTH__, __THUMBNAIL_HEIGHT__)
             thumbnail_path = attachment_dir + thumbnail_name
 
             with open(image_path, "w") as f:
                 f.write(part.get_payload(decode=True))
             f.closed
 
+            # Resize the image to a reasonable dimension.
+            image = Image.open(image_path)
+            image.resize((__IMAGE_WIDTH__, __IMAGE_HEIGHT__), Image.ANTIALIAS)
+            image.save(image_path)
+
             # Generate a thumbnail version of the image.
             image = Image.open(image_path)
-            image.thumbnail((300, 224), Image.ANTIALIAS)
+            image.thumbnail((__THUMBNAIL_WIDTH__, __THUMBNAIL_HEIGHT__),
+                    Image.ANTIALIAS)
             image.save(thumbnail_path)
 
             # Let the images be viewable on the web server.
@@ -93,6 +100,7 @@ def build_options():
     """Generate command line options."""
     parser = optparse.OptionParser()
 
+    # Required parameters.
     parser.add_option("-a", "--app", dest="app",
             help="name of the Django app")
     parser.add_option("-p", "--project-path", dest="project_path",
@@ -101,6 +109,18 @@ def build_options():
             help="accepted recipient")
     parser.add_option("-s", "--sender", dest="sender",
             help="accepted sender")
+
+    # Optional parameters.
+    optional = optparse.OptionGroup(parser, "Optional")
+    optional.add_option("--image-width", dest="image_width", type="int",
+            default=1024, help="default image width")
+    optional.add_option("--image-height", dest="image_height", type="int",
+            default=765, help="default image height")
+    optional.add_option("--thubnail-width", dest="thubnail_width", type="int",
+            default=300, help="default thumbnail width")
+    optional.add_option("--thumbnail-height", dest="thumbnail_height",
+            type="int", default=224, help="default thumbnail height")
+    parser.add_option_group(optional)
 
     return parser.parse_args()
 
@@ -181,6 +201,11 @@ if __name__ == "__main__":
     __PROJECT_PATH__ = OPTIONS.project_path
     __RECIPIENT__ = OPTIONS.recipient
     __SENDER__ = OPTIONS.sender
+
+    __IMAGE_WIDTH__ = OPTIONS.image_width
+    __IMAGE_HEIGHT__ = OPTIONS.image_height
+    __THUBNAIL__WIDTH__ = OPTIONS.thumbnail_width
+    __THUMBNAIL_HEIGHT__ = OPTIONS.thumbnail_height
 
     ensure_config_options()
 
