@@ -81,7 +81,7 @@ def walk_email(msg, attachment_dir):
 
             # Generate a thumbnail version of the image.
             image = Image.open(image_path)
-            image.thumbnail((__THUMBNAIL_WIDTH__, __THUMBNAIL_HEIGHT__),
+            image.resize((__THUMBNAIL_WIDTH__, __THUMBNAIL_HEIGHT__),
                     Image.ANTIALIAS)
             image.save(thumbnail_path)
 
