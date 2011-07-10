@@ -22,6 +22,7 @@ import Image
 import optparse
 import os
 import re
+import smtplib
 import sys
 import uuid
 
@@ -29,7 +30,24 @@ from datetime import datetime
 from django.conf import settings
 from django.template import defaultfilters
 from email import message_from_file
+from email.mime.text import MIMEText
 from email.parser import Parser
+
+
+def send_confirmation(domain, title, slug):
+    """Send a confirmation email upon a successful post."""
+    post_url = "http://%s/%s/" % (domain, slug)
+
+    msg = "View '%s' here: %s" % (title, post_url)
+    msg = MIMEText(msg)
+
+    msg["Subject"] = "'%s' is live on %s" % (title, domain)
+    msg["From"] = __RECIPIENT__
+    msg["To"] = __SENDER__
+
+    smtp = smtplib.SMTP("localhost")
+    smtp.sendmail(__RECIPIENT__, [__SENDER__], msg.as_string())
+    smtp.quit()
 
 
 def capture_headers(msg):
@@ -107,8 +125,6 @@ def build_options():
             help="path to the Django project")
     parser.add_option("-r", "--recipient", dest="recipient",
             help="accepted recipient")
-    parser.add_option("-s", "--sender", dest="sender",
-            help="accepted sender")
 
     # Optional parameters.
     optional = optparse.OptionGroup(parser, "Optional")
@@ -116,7 +132,7 @@ def build_options():
             default=1024, help="default image width")
     optional.add_option("--image-height", dest="image_height", type="int",
             default=765, help="default image height")
-    optional.add_option("--thubnail-width", dest="thubnail_width", type="int",
+    optional.add_option("--thubnail-width", dest="thumbnail_width", type="int",
             default=300, help="default thumbnail width")
     optional.add_option("--thumbnail-height", dest="thumbnail_height",
             type="int", default=224, help="default thumbnail height")
@@ -133,8 +149,6 @@ def ensure_config_options():
         sys.exit("Must supply the path to the Django project.")
     elif not __RECIPIENT__:
         sys.exit("Must supply a recipient.")
-    elif not __SENDER__:
-        sys.exit("Must supply a sender.")
 
     # Add the project to the Python Path and load the app's settings.
     sys.path.append(__PROJECT_PATH__)
@@ -153,9 +167,12 @@ def ensure_allowed():
 
 def load_models():
     """Load and return the app's models."""
-    from django.db import models  # Import after DJANGO_SETTINGS_MODULE is set
+    from django.contrib.sites.models import Site
+    from django.db import models
 
-    return (models.get_model(__APP__, "Post"),
+    domain = str(Site.objects.get_current().domain)
+
+    return (domain, models.get_model(__APP__, "Post"),
             models.get_model(__APP__, "Category"))
 
 
@@ -167,7 +184,7 @@ def find_category(model, category):
         sys.exit("Category not found.")
 
 
-def publish_post(model, category_id, title, body, attachments):
+def publish_post(domain, model, category_id, title, body, attachments):
     """Publish the new post to the DB."""
     if len(attachments) > 0:
         # TODO(jk0): Add support for multiple attachments.
@@ -193,6 +210,8 @@ def publish_post(model, category_id, title, body, attachments):
     post.categories = [category_id]
     post.save()
 
+    send_confirmation(domain, title, slug)
+
 
 if __name__ == "__main__":
     OPTIONS, ARGS = build_options()
@@ -200,7 +219,6 @@ if __name__ == "__main__":
     __APP__ = OPTIONS.app
     __PROJECT_PATH__ = OPTIONS.project_path
     __RECIPIENT__ = OPTIONS.recipient
-    __SENDER__ = OPTIONS.sender
 
     __IMAGE_WIDTH__ = OPTIONS.image_width
     __IMAGE_HEIGHT__ = OPTIONS.image_height
@@ -208,6 +226,9 @@ if __name__ == "__main__":
     __THUMBNAIL_HEIGHT__ = OPTIONS.thumbnail_height
 
     ensure_config_options()
+
+    # Set this after DJANGO_SETTINGS_MODULE is loaded.
+    __SENDER__ = settings.ADMINS[0][1]
 
     # Postfix sends messages via stdin.
     MSG = Parser().parse(sys.stdin)
@@ -220,9 +241,9 @@ if __name__ == "__main__":
     BODY, ATTACHMENTS = walk_email(MSG, settings.MEDIA_ROOT)
 
     # Load the app's models and the category ID.
-    POST_MODEL, CATEGORY_MODEL = load_models()
+    DOMAIN, POST_MODEL, CATEGORY_MODEL = load_models()
     CATEGORY_ID = find_category(CATEGORY_MODEL, __HEADERS__["category"])
 
     # Publish the new post to the DB.
-    publish_post(POST_MODEL, CATEGORY_ID, __HEADERS__["subject"], BODY,
-            ATTACHMENTS)
+    publish_post(DOMAIN, POST_MODEL, CATEGORY_ID, __HEADERS__["subject"],
+            BODY, ATTACHMENTS)

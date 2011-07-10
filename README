@@ -8,7 +8,7 @@ Installation
     sudo ln -s /path/to/django-emailpost /usr/bin
 
     sudo apt-get install postfix
-    sudo postconf -e "mailbox_command = django-emailpost -p <project path> -a <app> -r <recipient> -s <sender>"
+    sudo postconf -e "mailbox_command = django-emailpost -p <project path> -a <app> -r <recipient>"
     sudo /etc/init.d/postfix restart
 
 
