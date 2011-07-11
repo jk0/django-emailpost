@@ -241,21 +241,28 @@ def find_category(model, category):
 def publish_post(domain, model, category_id, title, body, attachments):
     """Publish the new post to the DB."""
     if len(attachments) > 0:
-        # TODO(jk0): Add support for multiple attachments.
-        original_path = "%s%s" % (settings.MEDIA_URL, attachments[0][0])
-        thumbnail_path = "%s%s" % (settings.MEDIA_URL, attachments[0][1])
-        gallery_path = "%s%s" % (settings.MEDIA_URL, attachments[0][2])
+        attachment_hrefs = ""
 
-        # Generate in the Textile markup language.
-        attachment_href = "\"(lightbox)!%s(%s)!\":%s" % (thumbnail_path,
-                title, original_path)
+        for count, attachment in enumerate(attachments):
+            original_path = "%s%s" % (settings.MEDIA_URL, attachment[0])
+            thumbnail_path = "%s%s" % (settings.MEDIA_URL, attachment[1])
+            gallery_path = "%s%s" % (settings.MEDIA_URL, attachment[2])
+
+            # Generate in the form of Textile ML.
+            attachment_hrefs += "\"(lightbox)!%s(%s)!\":%s" % (thumbnail_path,
+                    title, original_path)
+
+            # Only add newlines for multiple attachments, unless it's the last
+            # one in the list.
+            if count > 0 and count != (len(attachments) - 1):
+                attachment_hrefs += "\n\n"
 
     # If there are attachments and no body, only link the attachments.
     if len(body) <= 1 and len(attachments) > 0:
-        body = attachment_href
+        body = attachment_hrefs
     # If there is a body and attachments, include both.
     elif len(body) > 1 and len(attachments) > 0:
-        body = "%s\n\n%s" % (attachment_href, body)
+        body = "%s\n\n%s" % (attachment_hrefs, body)
 
     slug = defaultfilters.slugify(title)
     post = model(title=title, slug=slug, date=datetime.now(), body=body,
