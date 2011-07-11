@@ -17,7 +17,7 @@ import setuptools
 
 setuptools.setup(
     name="django-emailpost",
-    version="0.0.5",
+    version="0.0.6",
     author="Josh Kearney",
     author_email="josh@jk0.org",
     description="Post to Django blogs via email.",
