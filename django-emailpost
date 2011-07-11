@@ -254,7 +254,7 @@ def publish_post(domain, model, category_id, title, body, attachments):
 
             # Only add newlines for multiple attachments, unless it's the last
             # one in the list.
-            if count > 0 and count != (len(attachments) - 1):
+            if len(attachments) > 1 and count != (len(attachments) - 1):
                 attachment_hrefs += "\n\n"
 
     # If there are attachments and no body, only link the attachments.
