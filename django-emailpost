@@ -100,7 +100,11 @@ def get_extension(part):
     content_type = part.get("Content-Type")
     match = re.compile("name=\"(.*)\"").search(content_type, 1)
 
-    return match.group(1)[-4:]
+    if match:
+        return match.group(1)[-4:]
+    else:
+        # We will just assume it's a JPEG.
+        return ".jpg"
 
 
 def walk_email(msg, attachment_dir):
