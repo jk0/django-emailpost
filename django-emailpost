@@ -133,13 +133,15 @@ def walk_email(msg, attachment_dir):
 
             image = Image.open(image_path)
 
-            # Resize the image to a reasonable dimension.
-            image = image.resize((__IMAGE_WIDTH__, __IMAGE_HEIGHT__),
-                    Image.ANTIALIAS)
-            image.save(image_path)
+            if image.size[0] > 1024:
+                # Resize the image to a reasonable dimension.
+                image = image.resize((__IMAGE_WIDTH__, __IMAGE_HEIGHT__),
+                        Image.ANTIALIAS)
+                image.save(image_path)
 
             # Generate a thumbnail version of the image.
-            image = image.resize((__THUMBNAIL_WIDTH__, __THUMBNAIL_HEIGHT__),
+            image = ImageOps.fit(image,
+                    (__THUMBNAIL_WIDTH__, __THUMBNAIL_HEIGHT__),
                     Image.ANTIALIAS)
             image.save(thumbnail_path)
 
